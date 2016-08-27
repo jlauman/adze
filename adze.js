@@ -95,7 +95,7 @@ setTimeout(() => {
   if (cmd[0] == 'help') { cmdHelp(cmd[1]); }
   else if (cmd[0] == 'make') { cmdMake(cmd[1]); }
   else if (cmd[0] == 'init') { cmdInit(cmd[1]); }
-  else if (cmd[0] == 'pack') { errorExit('pack is not implemented'); }
+  else if (cmd[0] == 'pack') { cmdPack(cmd[1]); }
   else if (cmd[0] == 'host') { cmdHost(cmd[1]); }
   else { errorExit('bad cmd: ' + JSON.stringify(cmd)); }
 }, 0);
@@ -246,11 +246,6 @@ const cmdHost = function (port) {
   return server;
 }
 
-//--adze--modules--//
-
-let WebSocketServer = require('ws').Server;
-
-//--adze--files--//
 
 let fileHandler = (pathname, callback) => {
   let filename = path.join(WEB_FOLDER, pathname);
@@ -278,6 +273,48 @@ if (cmd[0] == 'host') {
     }
   };  
 }
+
+
+const cmdPack = function (port) {
+  const ADZE_FILES = "//--adze--files--//";
+  const ADZE_MODULES = "//--adze--modules--//";
+  let src1 = fs.readFileSync('./adze.js', { encoding: 'utf8' });
+  let lines1 = src1.split('\n').map((line) => line.replace(/\s+$/g, '')); // rtrim
+  let adze_files = true;
+  lines1 = lines1.filter((line) => line.startsWith(ADZE_FILES) ? adze_files = false : adze_files);
+  lines1.push(ADZE_FILES); lines1.push('');
+  // read each file in web folder into encoded sring in FILES
+  let dirs = fs.readdirSync(WEB_FOLDER);
+  let lines2 = dirs.map((dirname) => {
+    files1 = fs.readdirSync(path.join(WEB_FOLDER, dirname));
+    return files1.map((filename) => {
+      let filepath = path.join(WEB_FOLDER, dirname, filename);
+      let str1 = fs.readFileSync(filepath, { encoding: 'utf8' });
+      let buf1 = Buffer.from(src1, 'utf8');
+      let str2 = buf1.toString('base64'); //.replace(/(\n|\r|\+)/gm, ' ');
+      let str3 = `
+FILES['/${dirname}/${filename}'] = () => (new Buffer("${str2}", "base64")).toString("utf8");
+`;
+      return str3;      
+    });
+  });
+  lines2 = Array.prototype.concat.apply([], lines2); // simple 1-level array flatten
+  // append browserified websocket module
+  let wsCode = null;
+  if (fs.statSync(path.join(TMP_FOLDER, 'ws.js')).isFile()) { 
+    wsCode = fs.readFileSync(path.join(TMP_FOLDER, 'ws.js'), { encoding: 'utf8' });
+  }
+  // write packaged application file
+  let lines3 = lines1.concat(lines2);
+  if (wsCode) { lines3.push(''); lines3.push(ADZE_MODULES); lines3.push(''); lines3.push(wsCode); }
+  let src3 = lines3.join('\n');
+  let outname = `${APP_NAME}-${APP_VERSION}.js`;
+  let outpath = path.join(OUT_FOLDER, outname);
+  fs.writeFileSync(outpath, src3);
+};
+
+
+//--adze--files--//
 
 
 FILES['/reload.js'] = () => `
@@ -351,5 +388,10 @@ update msg model =
 `;
 
 
-// FILES['/demo/main.js'] = () => ``;
+FILES['/demo/main.js'] = () => ``;
 
+
+//--adze--modules--//
+
+
+let WebSocketServer = require('ws').Server;

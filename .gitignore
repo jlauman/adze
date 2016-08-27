@@ -1,6 +1,8 @@
 bin
 doc
 elm
+out
 tmp
 web
 node_modules
+.vscode
