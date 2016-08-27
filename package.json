@@ -1,0 +1,22 @@
+{
+  "name": "adze",
+  "version": "0.1.0",
+  "description": "",
+  "main": "adze.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "doc": "docco -o doc adze.js",
+    "elm-init": "node adze.js init",
+    "prepare": "npm install -g docco",
+    "start": "node adze.js make",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["elm", "server", "build", "tool"],
+  "author": "Jason Lauman",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^1.1.1"
+  }
+}
