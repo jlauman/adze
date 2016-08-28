@@ -230,7 +230,8 @@ const cmdHost = function (port) {
         if (pathname.endsWith('/index.html')) {
           content = content.replace('<head>', '<head>\n    <base href="/' + name + '/index.html">');
           if (cmd[0] == 'make') {
-            content = content.replace('</body>', '\n<script>' + FILES['/reload.js']() + '</script>\n  </body>');
+            // content = content.replace('</body>', '\n<script>' + FILES['/reload.js']() + '</script>\n  </body>');
+            content = content.replace('</body>', '\n    <script src="/reload.js"></script>\n  </body>');
           }
         }
         var headers = {
@@ -253,20 +254,7 @@ const cmdHost = function (port) {
 }
 
 
-let fileHandler = (pathname, callback) => {
-  let filename = path.join(WEB_FOLDER, pathname);
-  fs.exists(filename, (exists) => {
-    if (exists) {
-      fs.readFile(filename, 'binary', function(error, content) {
-        callback(error, filename, content)
-      });
-    } else {
-      callback(null, null, null);
-    }
-  });
-};
-    
-
+let fileHandler = null;
 if (cmd[0] == 'host') {
   fileHandler = (filename, callback) => {
     let content = FILES[filename];
@@ -278,6 +266,22 @@ if (cmd[0] == 'host') {
       callback(null, null, null);
     }
   };  
+} else {
+  fileHandler = (pathname, callback) => {
+    if (pathname == '/reload.js') {
+      callback(null, pathname, FILES['/reload.js']());
+    } else {
+      let filename = path.join(WEB_FOLDER, pathname);
+      let s = fs.statSync(filename);
+      if (s.isFile()) {
+        fs.readFile(filename, 'binary', function(error, content) {
+          callback(error, filename, content)
+        });
+      } else {
+        callback(null, null, null);
+      }
+    }
+  };
 }
 
 
@@ -325,11 +329,30 @@ FILES['/${dirname}/${filename}'] = () => (new Buffer("${str2}", "base64")).toStr
 
 FILES['/reload.js'] = () => `
 (function (port) {
-  let ws = new WebSocket('ws://127.0.0.1:' + port);
-  ws.onopen = function () { ws.send('ready'); };
-  ws.onmessage = function (event, flags) {
-    if (event.data === 'reload') { location.reload(true); }
+  let connect = function () {
+    let ws = new WebSocket('ws://127.0.0.1:' + port);
+    ws.onopen = function () { 
+      ws.send('ready');
+      let div = document.createElement('div');
+      div.setAttribute('style', '' +
+        'position:fixed; left:40%; top:0px; width:20%; background-color:#EEE; ' +
+        'border:2px solid #666; padding-top:0.12em; text-align:center; ' +
+        'font-size: 1.5em; opacity:0.0;');
+      div.appendChild(document.createTextNode('RELOAD'));
+      document.body.appendChild(div);
+      let opacity1 = 0.0; let opacity2 = 1.1;
+      let t = setInterval(function (div) {
+        let opacity = (opacity1 < 1.0 ? opacity1 += 0.05 : opacity2 -= 0.1);
+        if (opacity2 < 0 ) { clearTimeout(t); document.body.removeChild(div); }
+        div.style.opacity = opacity;
+      }.bind(this, div), 50);
+    };
+    ws.onclose = function () { setTimeout(connect, 3000); };
+    ws.onmessage = function (event, flags) {
+      if (event.data === 'reload') { location.reload(true); }
+    };
   };
+  connect();
 }(location.port));
 `;
 
