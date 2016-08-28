@@ -55,9 +55,13 @@ const errorExit = function (message) {
 
 
 let cmd = [];
-process.argv.forEach((arg) => {
-  if (arg.endsWith('node') || arg.endsWith('node.exe')) return true;
-  else if (arg.endsWith('adze.js')) return true;
+process.argv.forEach((arg, i) => {
+  if (i <= 1) {
+    let name = arg.split(path.sep).pop();
+    if (i == 0) { return true; }
+    else if (i == 1 && name == 'adze.js') { return true; }
+    else { cmd.push('host'); return true }
+  }
   else if (arg == 'help') { cmd.push('help'); return true; }
   else if (cmd[0] == 'help') { cmd.push(arg); return false; }
   else if (arg == 'init') { cmd.push('init'); return true; }
@@ -78,8 +82,10 @@ process.argv.forEach((arg) => {
 //
 // FIXME: When in production mode only prod folders should be created.
 //
+let FOLDERS = [BIN_FOLDER, ELM_FOLDER, LOG_FOLDER, OUT_FOLDER, TMP_FOLDER, WEB_FOLDER];
+if (cmd[0] == 'host') { FOLDERS = [LOG_FOLDER]; }
 
-[BIN_FOLDER, ELM_FOLDER, LOG_FOLDER, OUT_FOLDER, TMP_FOLDER, WEB_FOLDER].forEach((folder) => {
+FOLDERS.forEach((folder) => {
   try {
     let s = fs.statSync(folder);
     if (s.isFile()) { errorExit('expected folder, but found file for: ' + folder); }
@@ -290,7 +296,7 @@ const cmdPack = function (port) {
     return files1.map((filename) => {
       let filepath = path.join(WEB_FOLDER, dirname, filename);
       let str1 = fs.readFileSync(filepath, { encoding: 'utf8' });
-      let buf1 = Buffer.from(src1, 'utf8');
+      let buf1 = Buffer.from(str1, 'utf8');
       let str2 = buf1.toString('base64'); //.replace(/(\n|\r|\+)/gm, ' ');
       let str3 = `
 FILES['/${dirname}/${filename}'] = () => (new Buffer("${str2}", "base64")).toString("utf8");
