@@ -177,10 +177,11 @@ const cmdMake = function (port) {
     let webjs  = path.resolve(WEB_FOLDER, filename.replace('.elm', '.js'));
     let dstdir = path.dirname(dstelm);
     exec(ELM_MAKE + ' main.elm --output ' + webjs, { cwd: dstdir}, (err, stdout, stderr) => {
-      if (err) { console.error(err); }
-      else if (stderr) { console.error(stderr); }
-      else if (ws) { ws.send('reload'); }
-      if (stdout) { console.log(stdout); }
+      if (err && !(stderr || stdout)) { console.error(err); }
+      if (stderr) { console.error(stderr); }
+      else { console.log(stdout); }
+      if (ws && stderr) { ws.send(JSON.stringify({'error':stderr})); }
+      else if (ws) { ws.send(JSON.stringify({'reload':true})); }
     });
   };
 
@@ -347,9 +348,23 @@ FILES['/reload.js'] = () => `
         div.style.opacity = opacity;
       }.bind(this, div), 50);
     };
+    let div2 = document.createElement('div');
+    div2.setAttribute('style', '' +
+      'box-sizing:border-box; position:fixed; left:0px; top:0px; width:100vw; height:100vh; ' +
+      'border:2px solid #E00; padding:1em; background-color:#EFEFEF; font-size:1em; opacity:0; ');
+    let pre2 = document.createElement('pre');
+    div2.appendChild(pre2);
+    document.body.appendChild(div2);
     ws.onclose = function () { setTimeout(connect, 3000); };
     ws.onmessage = function (event, flags) {
-      if (event.data === 'reload') { location.reload(true); }
+      var data = JSON.parse(event.data);
+      if (data.reload) { 
+        location.reload(true);
+      } else if (data.error) {
+        if (pre2.firstChild) { pre2.removeChild(pre2.firstChild); }
+        pre2.appendChild(document.createTextNode(data.error));
+        div2.style.opacity = 1; 
+      }
     };
   };
   connect();
